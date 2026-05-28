@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prévisions de passages satellite</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d8bfd;
+      --border: #2a3a52;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 1.25rem; }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    section h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+      font-weight: 600;
+    }
+    .param-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem 2rem;
+    }
+    .param-block {
+      flex: 1 1 16rem;
+      min-width: 0;
+    }
+    .param-block-full {
+      flex: 1 1 100%;
+      margin-top: 0.25rem;
+    }
+    .sat-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.8rem;
+    }
+    .sat-toolbar button {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      padding: 0.2rem 0.5rem;
+      font-size: 0.8rem;
+    }
+    .param-block h3 {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin: 0 0 0.35rem;
+      font-weight: 600;
+    }
+    .value { font-size: 1rem; }
+    .meta { color: var(--muted); font-size: 0.875rem; margin-top: 0.25rem; }
+    .sat-groups {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 0.25rem;
+    }
+    .sat-group-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0 0 0.35rem;
+    }
+    .sat-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+    }
+    .sat-option {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    .sat-option input { accent-color: var(--accent); cursor: pointer; }
+    .param-select,
+    .param-input {
+      margin-top: 0.35rem;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.95rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      width: 100%;
+      max-width: 16rem;
+    }
+    .param-field {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+    .param-field:first-of-type { margin-top: 0.25rem; }
+    .param-input[type="number"] { max-width: 10rem; }
+    #status { min-height: 1.25rem; }
+    #status.error { color: #f87171; }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 0.6rem 1.25rem;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+    .empty-msg { color: var(--muted); margin-top: 1rem; }
+    .pos-mode-group {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .pos-mode-option {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      cursor: pointer;
+    }
+    .pos-mode-option input { accent-color: var(--accent); cursor: pointer; }
+    .pos-panel-hidden { display: none; }
+    .city-search-wrap {
+      position: relative;
+      margin-top: 0.25rem;
+    }
+    .city-suggestions {
+      position: absolute;
+      z-index: 10;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-width: 16rem;
+      margin: 0.2rem 0 0;
+      padding: 0;
+      list-style: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      max-height: 12rem;
+      overflow-y: auto;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    }
+    .city-suggestions:not(.city-suggestions-visible) { display: none; }
+    .city-suggestion-item {
+      padding: 0.45rem 0.6rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .city-suggestion-item:hover,
+    .city-suggestion-item:focus {
+      background: var(--bg);
+    }
+    .city-suggestion-empty {
+      padding: 0.45rem 0.6rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .city-attribution {
+      font-size: 0.75rem;
+      margin-top: 0.35rem;
+    }
+    .city-attribution a { color: var(--accent); }
+    .city-search-status {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+      min-height: 1.1rem;
+    }
+    .table-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-top: 1rem;
+    }
+    .table-scroll table {
+      margin-top: 0;
+      min-width: 36rem;
+    }
+    .table-scroll th,
+    .table-scroll td {
+      white-space: nowrap;
+    }
+    @media (max-width: 640px) {
+      body {
+        padding: 0.75rem;
+        padding-left: max(0.75rem, env(safe-area-inset-left));
+        padding-right: max(0.75rem, env(safe-area-inset-right));
+        padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+      }
+      h1 {
+        font-size: 1.15rem;
+        margin-bottom: 1rem;
+      }
+      section {
+        padding: 0.75rem 1rem;
+      }
+      .param-row {
+        gap: 1.25rem;
+      }
+      .param-input,
+      .param-select {
+        max-width: none;
+      }
+      .param-input[type="number"] {
+        max-width: none;
+      }
+      .city-suggestions {
+        max-width: none;
+      }
+      .pos-mode-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+      .sat-toolbar button {
+        min-height: 2.75rem;
+        padding: 0.4rem 0.85rem;
+      }
+      .sat-option {
+        min-height: 2.75rem;
+      }
+      #btn-calc {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Prévisions de passages satellite</h1>
+
+  <section>
+    <h2>Paramétrage</h2>
+    <div class="param-row">
+      <div class="param-block">
+        <h3>Position</h3>
+        <div class="pos-mode-group" role="radiogroup" aria-label="Mode de sélection de la position">
+          <label class="pos-mode-option">
+            <input type="radio" name="pos-mode" id="pos-mode-auto" value="auto" checked>
+            Automatique
+          </label>
+          <label class="pos-mode-option">
+            <input type="radio" name="pos-mode" id="pos-mode-city" value="city">
+            Ville
+          </label>
+        </div>
+        <div id="city-panel" class="pos-panel-hidden">
+          <label class="param-field" for="city-search">Rechercher une ville</label>
+          <div class="city-search-wrap">
+            <input type="text" id="city-search" class="param-input" autocomplete="off" placeholder="Ex. Toulouse, Paris…">
+            <ul id="city-suggestions" class="city-suggestions" role="listbox"></ul>
+          </div>
+          <p class="city-search-status" id="city-search-status"></p>
+          <p class="meta city-attribution">Données de localisation : <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames</a> via <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a></p>
+        </div>
+        <label class="param-field" for="lat-input">Latitude (°)</label>
+        <input type="number" id="lat-input" class="param-input" step="any" min="-90" max="90" required>
+        <label class="param-field" for="lon-input">Longitude (°)</label>
+        <input type="number" id="lon-input" class="param-input" step="any" min="-180" max="180" required>
+        <p class="meta" id="pos-source">—</p>
+      </div>
+      <div class="param-block">
+        <h3>Date de calcul</h3>
+        <label class="param-field" for="date-start-input">Début</label>
+        <input type="datetime-local" id="date-start-input" class="param-input" required>
+        <label class="param-field" for="window-duration-input">Durée de calcul (h)</label>
+        <input type="number" id="window-duration-input" class="param-input" min="0.1" step="0.5" value="12" required>
+        <p class="meta">Heure locale (navigateur) : <span id="calc-timezone-label">—</span></p>
+        <p class="param-field" style="margin-top: 0.75rem;">Fuseau horaire du tableau</p>
+        <div class="pos-mode-group" role="radiogroup" aria-label="Fuseau horaire du tableau">
+          <label class="pos-mode-option">
+            <input type="radio" name="table-tz-mode" id="table-tz-utc" value="utc">
+            UTC
+          </label>
+          <label class="pos-mode-option">
+            <input type="radio" name="table-tz-mode" id="table-tz-browser" value="browser" checked>
+            Navigateur <span class="meta" id="table-tz-browser-hint"></span>
+          </label>
+          <label class="pos-mode-option">
+            <input type="radio" name="table-tz-mode" id="table-tz-city" value="city" disabled>
+            Ville <span class="meta" id="table-tz-city-hint"></span>
+          </label>
+        </div>
+      </div>
+      <div class="param-block">
+        <h3>Élévation minimale</h3>
+        <select id="min-elev" class="param-select" aria-label="Élévation minimale en degrés">
+          <option value="0">0°</option>
+          <option value="5" selected>5°</option>
+          <option value="10">10°</option>
+        </select>
+      </div>
+    </div>
+    <div class="param-block param-block-full">
+      <h3>Satellites</h3>
+      <div class="sat-toolbar">
+        <button type="button" id="btn-sat-all">Tout sélectionner</button>
+        <button type="button" id="btn-sat-none">Tout désélectionner</button>
+      </div>
+      <div class="sat-list" id="sat-list"></div>
+    </div>
+  </section>
+
+  <section>
+    <button type="button" id="btn-calc">Calcul passages</button>
+    <p class="meta" id="status">Cliquez sur Calcul passages.</p>
+    <div id="results"></div>
+  </section>
+
+  <script>
+    const CELESTRAK_TLE_BASE = "https://celestrak.org/NORAD/elements/gp.php";
+    const SATELLITE_JS_URL = "https://cdn.jsdelivr.net/npm/satellite.js@4.1.4/dist/satellite.min.js";
+    const SATELLITE_GROUPS = [
+      {
+        groupLabel: "Kineis",
+        defaultChecked: true,
+        satellites: [
+          { label: "KIN1A", noradId: 60084 },
+          { label: "KIN1B", noradId: 60079 },
+          { label: "KIN1C", noradId: 60081 },
+          { label: "KIN1E", noradId: 60083 },
+          { label: "KIN2A", noradId: 62932 },
+          { label: "KIN2B", noradId: 62934 },
+          { label: "KIN2C", noradId: 62929 },
+          { label: "KIN2D", noradId: 62930 },
+          { label: "KIN2E", noradId: 62931 },
+          { label: "KIN3A", noradId: 61223 },
+          { label: "KIN3B", noradId: 61224 },
+          { label: "KIN3D", noradId: 61221 },
+          { label: "KIN3E", noradId: 61222 },
+          { label: "KIN4A", noradId: 63303 },
+          { label: "KIN4B", noradId: 63304 },
+          { label: "KIN4D", noradId: 63302 },
+          { label: "KIN4E", noradId: 63300 },
+          { label: "KIN5A", noradId: 62084 },
+          { label: "KIN5C", noradId: 62081 },
+          { label: "KIN5E", noradId: 62083 },
+        ],
+      },
+      {
+        groupLabel: "Argos Legacy",
+        defaultChecked: false,
+        satellites: [
+          { label: "METOP-B", noradId: 38771 },
+          { label: "SARAL", noradId: 39086 },
+          { label: "METOP-C", noradId: 43689 },
+          { label: "OTB-3-GAZELLE", noradId: 54023 },
+          { label: "EOS-6 (OCEANSAT-3)", noradId: 54361 },
+        ],
+      },
+    ];
+    const TOULOUSE_LAT = 43.604652;
+    const TOULOUSE_LON = 1.444209;
+    const GEOCODING_API = "https://geocoding-api.open-meteo.com/v1/search";
+    const CITY_SEARCH_DEBOUNCE_MS = 300;
+    const CITY_SEARCH_MIN_CHARS = 2;
+    const MIN_ELEV_OPTIONS = [0, 5, 10];
+    const DEFAULT_WINDOW_HOURS = 12;
+    const SCAN_STEP_MS = 30 * 1000;
+    const REFINE_STEP_MS = 1000;
+
+    const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    let dateTimeFmt;
+    let tableDateFmt;
+    try {
+      dateTimeFmt = new Intl.DateTimeFormat("fr-FR", {
+        dateStyle: "full",
+        timeStyle: "long",
+        timeZoneName: "short",
+      });
+    } catch (err) {
+      dateTimeFmt = null;
+    }
+
+    let satelliteLibPromise = null;
+    const tleCache = {};
+    let positionMode = "auto";
+    let citySearchTimer = null;
+    let citySearchRequestId = 0;
+    let tableDisplayMode = "browser";
+    let selectedCityTimeZone = null;
+    let cityTimeZoneAvailable = false;
+    let lastRenderedPasses = null;
+
+    const elLatInput = document.getElementById("lat-input");
+    const elLonInput = document.getElementById("lon-input");
+    const elPosSource = document.getElementById("pos-source");
+    const elPosModeAuto = document.getElementById("pos-mode-auto");
+    const elPosModeCity = document.getElementById("pos-mode-city");
+    const elCityPanel = document.getElementById("city-panel");
+    const elCitySearch = document.getElementById("city-search");
+    const elCitySuggestions = document.getElementById("city-suggestions");
+    const elCitySearchStatus = document.getElementById("city-search-status");
+    const elDateStartInput = document.getElementById("date-start-input");
+    const elWindowDurationInput = document.getElementById("window-duration-input");
+    const elCalcTimezoneLabel = document.getElementById("calc-timezone-label");
+    const elTableTzUtc = document.getElementById("table-tz-utc");
+    const elTableTzBrowser = document.getElementById("table-tz-browser");
+    const elTableTzCity = document.getElementById("table-tz-city");
+    const elTableTzBrowserHint = document.getElementById("table-tz-browser-hint");
+    const elTableTzCityHint = document.getElementById("table-tz-city-hint");
+    const elStatus = document.getElementById("status");
+    const elBtn = document.getElementById("btn-calc");
+    const elResults = document.getElementById("results");
+    const elSatList = document.getElementById("sat-list");
+    const elBtnSatAll = document.getElementById("btn-sat-all");
+    const elBtnSatNone = document.getElementById("btn-sat-none");
+    const elMinElev = document.getElementById("min-elev");
+
+    function getMinElevDeg() {
+      const value = parseFloat(elMinElev.value);
+      if (MIN_ELEV_OPTIONS.indexOf(value) === -1) {
+        throw new Error(
+          "Élévation minimale invalide : valeur attendue parmi " + MIN_ELEV_OPTIONS.join(", ") + "°.",
+        );
+      }
+      return value;
+    }
+
+    function getReferenceDateForLabels() {
+      if (elDateStartInput.value === "") {
+        return new Date();
+      }
+      const date = new Date(elDateStartInput.value);
+      if (Number.isNaN(date.getTime())) {
+        return new Date();
+      }
+      return date;
+    }
+
+    function ianaToShortPlaceName(ianaTimeZone) {
+      const segment = ianaTimeZone.split("/").pop();
+      return segment.replace(/_/g, " ").toUpperCase();
+    }
+
+    function getUtcOffsetLabel(ianaTimeZone, referenceDate) {
+      if (ianaTimeZone === "UTC") {
+        return "UTC";
+      }
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: ianaTimeZone,
+        timeZoneName: "longOffset",
+      }).formatToParts(referenceDate);
+      let raw = "";
+      for (let i = 0; i < parts.length; i++) {
+        if (parts[i].type === "timeZoneName") {
+          raw = parts[i].value;
+          break;
+        }
+      }
+      const match = raw.match(/(?:GMT|UTC)([+-])(\d{1,2})(?::(\d{2}))?/i);
+      if (!match) {
+        if (raw.toUpperCase() === "GMT" || raw.toUpperCase() === "UTC") {
+          return "UTC";
+        }
+        throw new Error(
+          "Impossible de déterminer le décalage UTC pour « " + ianaTimeZone + " ».",
+        );
+      }
+      const sign = match[1];
+      const hours = parseInt(match[2], 10);
+      const minutes = match[3] ? parseInt(match[3], 10) : 0;
+      if (hours === 0 && minutes === 0) {
+        return "UTC";
+      }
+      if (minutes === 0) {
+        return "UTC" + sign + hours + "h";
+      }
+      const totalMinutes = hours * 60 + minutes;
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      return "UTC" + sign + h + "h" + m + "min";
+    }
+
+    function formatTimeZoneDisplay(ianaTimeZone, referenceDate) {
+      if (ianaTimeZone === "UTC") {
+        return "UTC";
+      }
+      const place = ianaToShortPlaceName(ianaTimeZone);
+      const offset = getUtcOffsetLabel(ianaTimeZone, referenceDate);
+      return place + " " + offset;
+    }
+
+    function formatBrowserTimeZoneHint(referenceDate) {
+      return (
+        "(" + browserTimeZone + " — " + formatTimeZoneDisplay(browserTimeZone, referenceDate) + ")"
+      );
+    }
+
+    function buildTableDateFmt(timeZone) {
+      return new Intl.DateTimeFormat("fr-FR", {
+        dateStyle: "short",
+        timeStyle: "medium",
+        timeZone: timeZone,
+      });
+    }
+
+    function getTableTimeZone() {
+      if (tableDisplayMode === "utc") {
+        return "UTC";
+      }
+      if (tableDisplayMode === "browser") {
+        return browserTimeZone;
+      }
+      if (tableDisplayMode === "city") {
+        if (selectedCityTimeZone === null) {
+          throw new Error("Fuseau de la ville : aucune ville sélectionnée.");
+        }
+        return selectedCityTimeZone;
+      }
+      throw new Error("Mode d'affichage fuseau tableau invalide : « " + tableDisplayMode + " ».");
+    }
+
+    function refreshTableDateFmt() {
+      try {
+        tableDateFmt = buildTableDateFmt(getTableTimeZone());
+      } catch (err) {
+        tableDateFmt = null;
+      }
+    }
+
+    function getTableHeaderTimeZoneLabel(referenceDate) {
+      if (tableDisplayMode === "utc") {
+        return "UTC";
+      }
+      return formatTimeZoneDisplay(getTableTimeZone(), referenceDate);
+    }
+
+    function updateCalcTimezoneLabel() {
+      const refDate = getReferenceDateForLabels();
+      elCalcTimezoneLabel.textContent = formatTimeZoneDisplay(browserTimeZone, refDate);
+    }
+
+    function updateTableTimezoneHints() {
+      const refDate = getReferenceDateForLabels();
+      elTableTzBrowserHint.textContent = formatBrowserTimeZoneHint(refDate);
+      elTableTzCity.disabled = !cityTimeZoneAvailable;
+      if (selectedCityTimeZone !== null) {
+        elTableTzCityHint.textContent =
+          "(" + selectedCityTimeZone + " — " +
+          formatTimeZoneDisplay(selectedCityTimeZone, refDate) + ")";
+      } else {
+        elTableTzCityHint.textContent = "(aucune ville sélectionnée)";
+      }
+    }
+
+    function setTableDisplayMode(mode) {
+      if (mode !== "utc" && mode !== "browser" && mode !== "city") {
+        throw new Error("Mode fuseau tableau invalide : « " + mode + " ».");
+      }
+      if (mode === "city" && !cityTimeZoneAvailable) {
+        return;
+      }
+      tableDisplayMode = mode;
+      if (mode === "utc") {
+        elTableTzUtc.checked = true;
+      } else if (mode === "browser") {
+        elTableTzBrowser.checked = true;
+      } else {
+        elTableTzCity.checked = true;
+      }
+      refreshTableDateFmt();
+      updateTableTimezoneHints();
+      if (lastRenderedPasses !== null) {
+        renderPasses(lastRenderedPasses);
+      }
+    }
+
+    function onTableTimezoneModeChange() {
+      if (elTableTzUtc.checked) {
+        setTableDisplayMode("utc");
+      } else if (elTableTzBrowser.checked) {
+        setTableDisplayMode("browser");
+      } else if (elTableTzCity.checked) {
+        setTableDisplayMode("city");
+      }
+    }
+
+    function initTableTimezoneMode() {
+      refreshTableDateFmt();
+      updateCalcTimezoneLabel();
+      updateTableTimezoneHints();
+      elTableTzUtc.addEventListener("change", onTableTimezoneModeChange);
+      elTableTzBrowser.addEventListener("change", onTableTimezoneModeChange);
+      elTableTzCity.addEventListener("change", onTableTimezoneModeChange);
+      elDateStartInput.addEventListener("input", function () {
+        updateCalcTimezoneLabel();
+        updateTableTimezoneHints();
+        if (lastRenderedPasses !== null) {
+          renderPasses(lastRenderedPasses);
+        }
+      });
+    }
+
+    function formatLocalDate(date) {
+      if (dateTimeFmt) {
+        return dateTimeFmt.format(date);
+      }
+      return date.toLocaleString("fr-FR");
+    }
+
+    function formatTableDate(date) {
+      if (tableDateFmt) {
+        return tableDateFmt.format(date);
+      }
+      const tz = getTableTimeZone();
+      return date.toLocaleString("fr-FR", { timeZone: tz });
+    }
+
+    function setStatus(message, isError) {
+      elStatus.textContent = message;
+      elStatus.classList.toggle("error", isError === true);
+    }
+
+    function pad2(n) {
+      return String(n).padStart(2, "0");
+    }
+
+    function dateToDatetimeLocalValue(date) {
+      return (
+        date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate()) +
+        "T" + pad2(date.getHours()) + ":" + pad2(date.getMinutes())
+      );
+    }
+
+    function parseDatetimeLocalValue(value, fieldLabel) {
+      if (value === "") {
+        throw new Error(fieldLabel + " : date/heure requise.");
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        throw new Error(fieldLabel + " : date/heure invalide.");
+      }
+      return date;
+    }
+
+    function setPositionInputs(lat, lon, sourceLabel) {
+      elLatInput.value = lat.toFixed(3);
+      elLonInput.value = lon.toFixed(3);
+      elPosSource.textContent = sourceLabel;
+    }
+
+    function parseWindowDurationHours() {
+      const value = parseFloat(elWindowDurationInput.value);
+      if (Number.isNaN(value) || value <= 0) {
+        throw new Error("Durée de calcul invalide : valeur strictement positive attendue (heures).");
+      }
+      return value;
+    }
+
+    function initDateInputs() {
+      const t0 = new Date();
+      elDateStartInput.value = dateToDatetimeLocalValue(t0);
+      elWindowDurationInput.value = String(DEFAULT_WINDOW_HOURS);
+      updateCalcTimezoneLabel();
+    }
+
+    function getObserverFromInputs() {
+      const lat = parseFloat(elLatInput.value);
+      const lon = parseFloat(elLonInput.value);
+      if (Number.isNaN(lat) || lat < -90 || lat > 90) {
+        throw new Error("Latitude invalide : valeur attendue entre -90 et 90.");
+      }
+      if (Number.isNaN(lon) || lon < -180 || lon > 180) {
+        throw new Error("Longitude invalide : valeur attendue entre -180 et 180.");
+      }
+      return { lat: lat, lon: lon, altM: 0 };
+    }
+
+    function getCalculationWindow() {
+      const t0 = parseDatetimeLocalValue(elDateStartInput.value, "Début");
+      const durationHours = parseWindowDurationHours();
+      const tEnd = new Date(t0.getTime() + durationHours * 3600 * 1000);
+      return { t0: t0, tEnd: tEnd };
+    }
+
+    function markPositionManual() {
+      elPosSource.textContent = "Saisie manuelle";
+    }
+
+    function formatCityLabel(result) {
+      const parts = [result.name];
+      if (result.admin1 && result.admin1 !== result.name) {
+        parts.push(result.admin1);
+      }
+      if (result.country) {
+        parts.push(result.country);
+      }
+      return parts.join(", ");
+    }
+
+    function closeCitySuggestions() {
+      elCitySuggestions.innerHTML = "";
+      elCitySuggestions.classList.remove("city-suggestions-visible");
+    }
+
+    function clearCitySearchStatus() {
+      elCitySearchStatus.textContent = "";
+    }
+
+    function setCitySearchStatus(message) {
+      elCitySearchStatus.textContent = message;
+    }
+
+    async function searchCities(query) {
+      const url =
+        GEOCODING_API +
+        "?name=" + encodeURIComponent(query) +
+        "&count=8&language=fr&format=json";
+      let response;
+      try {
+        response = await fetch(url);
+      } catch (err) {
+        throw new Error("Impossible de contacter le service de géocodage.");
+      }
+      if (!response.ok) {
+        throw new Error("Service de géocodage indisponible (HTTP " + response.status + ").");
+      }
+      const data = await response.json();
+      if (data.error === true) {
+        throw new Error("Géocodage : " + data.reason);
+      }
+      if (!Object.prototype.hasOwnProperty.call(data, "results")) {
+        return [];
+      }
+      return data.results;
+    }
+
+    function renderCitySuggestions(results) {
+      elCitySuggestions.innerHTML = "";
+      if (results.length === 0) {
+        const li = document.createElement("li");
+        li.className = "city-suggestion-empty";
+        li.textContent = "Aucun résultat";
+        elCitySuggestions.appendChild(li);
+        elCitySuggestions.classList.add("city-suggestions-visible");
+        return;
+      }
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const li = document.createElement("li");
+        li.className = "city-suggestion-item";
+        li.setAttribute("role", "option");
+        li.textContent = formatCityLabel(result);
+        li.addEventListener("mousedown", function (ev) {
+          ev.preventDefault();
+          try {
+            selectCity(result);
+          } catch (err) {
+            setCitySearchStatus(err.message);
+          }
+        });
+        elCitySuggestions.appendChild(li);
+      }
+      elCitySuggestions.classList.add("city-suggestions-visible");
+    }
+
+    function selectCity(result) {
+      if (!Object.prototype.hasOwnProperty.call(result, "timezone")) {
+        throw new Error(
+          "Géocodage : fuseau horaire absent pour cette ville. Choisissez un autre résultat.",
+        );
+      }
+      const label = formatCityLabel(result);
+      elCitySearch.value = label;
+      setPositionInputs(result.latitude, result.longitude, "Ville : " + label);
+      selectedCityTimeZone = result["timezone"];
+      cityTimeZoneAvailable = true;
+      closeCitySuggestions();
+      clearCitySearchStatus();
+      updateTableTimezoneHints();
+    }
+
+    function onCitySearchInput() {
+      const query = elCitySearch.value.trim();
+      clearCitySearchStatus();
+      if (citySearchTimer !== null) {
+        clearTimeout(citySearchTimer);
+        citySearchTimer = null;
+      }
+      if (query.length < CITY_SEARCH_MIN_CHARS) {
+        closeCitySuggestions();
+        return;
+      }
+      const requestId = ++citySearchRequestId;
+      citySearchTimer = setTimeout(async function () {
+        citySearchTimer = null;
+        setCitySearchStatus("Recherche…");
+        try {
+          const results = await searchCities(query);
+          if (requestId !== citySearchRequestId) {
+            return;
+          }
+          clearCitySearchStatus();
+          renderCitySuggestions(results);
+        } catch (err) {
+          if (requestId !== citySearchRequestId) {
+            return;
+          }
+          closeCitySuggestions();
+          setCitySearchStatus(err.message);
+        }
+      }, CITY_SEARCH_DEBOUNCE_MS);
+    }
+
+    function setPositionMode(mode) {
+      if (mode !== "auto" && mode !== "city") {
+        throw new Error("Mode de position invalide : « " + mode + " ».");
+      }
+      positionMode = mode;
+      if (mode === "auto") {
+        elCityPanel.classList.add("pos-panel-hidden");
+        closeCitySuggestions();
+        clearCitySearchStatus();
+        cityTimeZoneAvailable = false;
+        if (tableDisplayMode === "city") {
+          setTableDisplayMode("browser");
+        } else {
+          updateTableTimezoneHints();
+        }
+        initGeolocation();
+      } else {
+        elCityPanel.classList.remove("pos-panel-hidden");
+        elPosSource.textContent = "Saisissez ou sélectionnez une ville";
+        cityTimeZoneAvailable = selectedCityTimeZone !== null;
+        updateTableTimezoneHints();
+      }
+    }
+
+    function initPositionMode() {
+      elPosModeAuto.addEventListener("change", function () {
+        if (elPosModeAuto.checked) {
+          setPositionMode("auto");
+        }
+      });
+      elPosModeCity.addEventListener("change", function () {
+        if (elPosModeCity.checked) {
+          setPositionMode("city");
+        }
+      });
+      elCitySearch.addEventListener("input", onCitySearchInput);
+      document.addEventListener("click", function (ev) {
+        if (positionMode !== "city") {
+          return;
+        }
+        if (!elCityPanel.contains(ev.target)) {
+          closeCitySuggestions();
+        }
+      });
+      elCitySearch.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape") {
+          closeCitySuggestions();
+        }
+      });
+      setPositionMode("auto");
+    }
+
+    function initGeolocation() {
+      setPositionInputs(TOULOUSE_LAT, TOULOUSE_LON, "En attente de géolocalisation…");
+      if (!navigator.geolocation) {
+        setPositionInputs(
+          TOULOUSE_LAT,
+          TOULOUSE_LON,
+          "Toulouse (par défaut) — géolocalisation non supportée",
+        );
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          setPositionInputs(
+            pos.coords.latitude,
+            pos.coords.longitude,
+            "Géolocalisation navigateur",
+          );
+        },
+        function () {
+          setPositionInputs(TOULOUSE_LAT, TOULOUSE_LON, "Toulouse (par défaut)");
+        },
+        { enableHighAccuracy: true, timeout: 10000 },
+      );
+    }
+
+    function loadSatelliteLib() {
+      if (typeof satellite !== "undefined") {
+        return Promise.resolve(satellite);
+      }
+      if (satelliteLibPromise) {
+        return satelliteLibPromise;
+      }
+      satelliteLibPromise = new Promise(function (resolve, reject) {
+        const script = document.createElement("script");
+        script.src = SATELLITE_JS_URL;
+        script.async = true;
+        script.onload = function () {
+          if (typeof satellite === "undefined") {
+            reject(new Error("satellite.js chargé mais objet global « satellite » absent."));
+            return;
+          }
+          resolve(satellite);
+        };
+        script.onerror = function () {
+          reject(
+            new Error(
+              "Impossible de charger satellite.js depuis le CDN. Vérifiez l'accès réseau.",
+            ),
+          );
+        };
+        document.head.appendChild(script);
+      });
+      return satelliteLibPromise;
+    }
+
+    function buildTleUrl(noradId) {
+      return CELESTRAK_TLE_BASE + "?CATNR=" + noradId + "&FORMAT=TLE";
+    }
+
+    function setAllSatelliteCheckboxes(checked) {
+      const inputs = elSatList.querySelectorAll('input[type="checkbox"]');
+      for (let i = 0; i < inputs.length; i++) {
+        inputs[i].checked = checked;
+      }
+    }
+
+    function initSatelliteCheckboxes() {
+      elSatList.className = "sat-groups";
+      for (let g = 0; g < SATELLITE_GROUPS.length; g++) {
+        const group = SATELLITE_GROUPS[g];
+        const groupBlock = document.createElement("div");
+        groupBlock.className = "sat-group";
+        const groupTitle = document.createElement("h4");
+        groupTitle.className = "sat-group-title";
+        groupTitle.textContent = group.groupLabel;
+        groupBlock.appendChild(groupTitle);
+        const list = document.createElement("div");
+        list.className = "sat-list";
+        for (let i = 0; i < group.satellites.length; i++) {
+          const entry = group.satellites[i];
+          const label = document.createElement("label");
+          label.className = "sat-option";
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.value = String(entry.noradId);
+          input.checked = group.defaultChecked;
+          input.dataset.label = entry.label;
+          label.appendChild(input);
+          label.appendChild(document.createTextNode(entry.label + " (" + entry.noradId + ")"));
+          list.appendChild(label);
+        }
+        groupBlock.appendChild(list);
+        elSatList.appendChild(groupBlock);
+      }
+      elBtnSatAll.addEventListener("click", function () {
+        setAllSatelliteCheckboxes(true);
+      });
+      elBtnSatNone.addEventListener("click", function () {
+        setAllSatelliteCheckboxes(false);
+      });
+    }
+
+    function getSelectedSatellites() {
+      const inputs = elSatList.querySelectorAll('input[type="checkbox"]');
+      const selected = [];
+      for (let i = 0; i < inputs.length; i++) {
+        const input = inputs[i];
+        if (input.checked) {
+          selected.push({
+            label: input.dataset.label,
+            noradId: parseInt(input.value, 10),
+          });
+        }
+      }
+      if (selected.length === 0) {
+        throw new Error("Sélectionnez au moins un satellite.");
+      }
+      return selected;
+    }
+
+    function isTleCached(noradId) {
+      return Object.prototype.hasOwnProperty.call(tleCache, noradId);
+    }
+
+    async function downloadTleFromCelestrak(noradId, label) {
+      if (isTleCached(noradId)) {
+        return tleCache[noradId];
+      }
+      const response = await fetch(buildTleUrl(noradId));
+      if (!response.ok) {
+        throw new Error(
+          "Échec du téléchargement CelesTrak pour " + label + " (HTTP " + response.status + ").",
+        );
+      }
+      const text = await response.text();
+      const lines = text.trim().split(/\r?\n/);
+      if (lines.length < 3) {
+        throw new Error(
+          "Réponse CelesTrak invalide pour " + label + " : 3 lignes TLE attendues.",
+        );
+      }
+      const entry = {
+        satName: lines[0].trim(),
+        line1: lines[1].trim(),
+        line2: lines[2].trim(),
+        label: label,
+        noradId: noradId,
+      };
+      tleCache[noradId] = entry;
+      return entry;
+    }
+
+    function elevationDeg(sat, satrec, latDeg, lonDeg, date) {
+      const positionAndVelocity = sat.propagate(satrec, date);
+      const positionEci = positionAndVelocity.position;
+      if (!positionEci) {
+        throw new Error("Propagation impossible à cette date.");
+      }
+      const gmst = sat.gstime(date);
+      const positionEcf = sat.eciToEcf(positionEci, gmst);
+      const observerGd = {
+        longitude: sat.degreesToRadians(lonDeg),
+        latitude: sat.degreesToRadians(latDeg),
+        height: 0,
+      };
+      const look = sat.ecfToLookAngles(observerGd, positionEcf);
+      return sat.radiansToDegrees(look.elevation);
+    }
+
+    function refineBoundary(sat, satrec, lat, lon, tLow, tHigh, wantAbove, minElevDeg) {
+      let low = tLow.getTime();
+      let high = tHigh.getTime();
+      while (high - low > REFINE_STEP_MS) {
+        const mid = Math.floor((low + high) / 2);
+        const elev = elevationDeg(sat, satrec, lat, lon, new Date(mid));
+        const above = elev > minElevDeg;
+        if (above === wantAbove) {
+          high = mid;
+        } else {
+          low = mid;
+        }
+      }
+      return new Date(wantAbove ? high : low);
+    }
+
+    function findPasses(sat, satrec, satName, lat, lon, minElevDeg, t0, tEnd) {
+      const passes = [];
+      const t0Ms = t0.getTime();
+      const tEndMs = tEnd.getTime();
+      let inPass = false;
+      let passStart = null;
+      let passEnd = null;
+      let maxElev = -90;
+      let prevTime = null;
+      let prevElev = null;
+
+      for (let t = t0Ms; t <= tEndMs; t += SCAN_STEP_MS) {
+        const date = new Date(t);
+        const elev = elevationDeg(sat, satrec, lat, lon, date);
+        const above = elev > minElevDeg;
+
+        if (above) {
+          if (!inPass) {
+            inPass = true;
+            if (prevTime !== null && prevElev !== null && prevElev <= minElevDeg) {
+              passStart = refineBoundary(
+                sat, satrec, lat, lon,
+                new Date(prevTime), date, true, minElevDeg,
+              );
+            } else {
+              passStart = date;
+            }
+            maxElev = elev;
+            passEnd = date;
+          } else {
+            maxElev = Math.max(maxElev, elev);
+            passEnd = date;
+          }
+        } else if (inPass) {
+          let endRefined = date;
+          if (prevTime !== null) {
+            endRefined = refineBoundary(
+              sat, satrec, lat, lon,
+              new Date(prevTime), date, false, minElevDeg,
+            );
+          }
+          if (passStart.getTime() >= t0Ms) {
+            passes.push({
+              satName: satName,
+              start: passStart,
+              end: endRefined,
+              maxElev: maxElev,
+            });
+          }
+          inPass = false;
+          passStart = null;
+          passEnd = null;
+          maxElev = -90;
+        }
+        prevTime = t;
+        prevElev = elev;
+      }
+
+      if (inPass && passStart !== null && passStart.getTime() >= t0Ms) {
+        passes.push({
+          satName: satName,
+          start: passStart,
+          end: passEnd,
+          maxElev: maxElev,
+        });
+      }
+
+      return passes;
+    }
+
+    function renderPasses(passes) {
+      lastRenderedPasses = passes;
+      elResults.innerHTML = "";
+      if (passes.length === 0) {
+        const p = document.createElement("p");
+        p.className = "empty-msg";
+        p.textContent = "Aucun passage sur la fenêtre configurée.";
+        elResults.appendChild(p);
+        return;
+      }
+
+      const headerRefDate = passes[0].start;
+      const headerLabel = getTableHeaderTimeZoneLabel(headerRefDate);
+      const table = document.createElement("table");
+      const thead = document.createElement("thead");
+      const thStart = "Début (" + headerLabel + ")";
+      const thEnd = "Fin (" + headerLabel + ")";
+      thead.innerHTML =
+        "<tr>" +
+        "<th>" + thStart + "</th><th>" + thEnd + "</th><th>Satellite</th>" +
+        "<th>Élévation max.</th><th>Durée (min)</th>" +
+        "</tr>";
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      for (let i = 0; i < passes.length; i++) {
+        const p = passes[i];
+        const durationMin = (p.end.getTime() - p.start.getTime()) / 60000;
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          "<td>" + formatTableDate(p.start) + "</td>" +
+          "<td>" + formatTableDate(p.end) + "</td>" +
+          "<td>" + p.satName + "</td>" +
+          "<td>" + p.maxElev.toFixed(1) + "°</td>" +
+          "<td>" + durationMin.toFixed(1) + "</td>";
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      const scrollWrap = document.createElement("div");
+      scrollWrap.className = "table-scroll";
+      scrollWrap.appendChild(table);
+      elResults.appendChild(scrollWrap);
+    }
+
+    function sortPassesByStart(passes) {
+      passes.sort(function (a, b) {
+        return a.start.getTime() - b.start.getTime();
+      });
+      return passes;
+    }
+
+    async function onCalculate() {
+      elBtn.disabled = true;
+      elBtn.textContent = "Calcul en cours…";
+      setStatus("Chargement de satellite.js…", false);
+
+      try {
+        const selected = getSelectedSatellites();
+        const minElevDeg = getMinElevDeg();
+        const obs = getObserverFromInputs();
+        const window = getCalculationWindow();
+        const sat = await loadSatelliteLib();
+        const allPasses = [];
+
+        for (let i = 0; i < selected.length; i++) {
+          const entry = selected[i];
+          if (isTleCached(entry.noradId)) {
+            setStatus(
+              "TLE " + entry.label + " (cache) (" + (i + 1) + "/" + selected.length + ")…",
+              false,
+            );
+          } else {
+            setStatus(
+              "Téléchargement TLE " + entry.label + " (" + (i + 1) + "/" + selected.length + ")…",
+              false,
+            );
+          }
+          const tle = await downloadTleFromCelestrak(entry.noradId, entry.label);
+          const satrec = sat.twoline2satrec(tle.line1, tle.line2);
+          setStatus(
+            "Calcul des passages " + entry.label + " (" + (i + 1) + "/" + selected.length + ")…",
+            false,
+          );
+          const passes = findPasses(
+            sat, satrec, tle.satName, obs.lat, obs.lon, minElevDeg, window.t0, window.tEnd,
+          );
+          for (let j = 0; j < passes.length; j++) {
+            allPasses.push(passes[j]);
+          }
+        }
+
+        sortPassesByStart(allPasses);
+        renderPasses(allPasses);
+        setStatus(allPasses.length + " passage(s) trouvé(s).", false);
+      } catch (err) {
+        setStatus(err.message, true);
+        elResults.innerHTML = "";
+        lastRenderedPasses = null;
+      } finally {
+        elBtn.disabled = false;
+        elBtn.textContent = "Calcul passages";
+      }
+    }
+
+    initDateInputs();
+    initTableTimezoneMode();
+    initSatelliteCheckboxes();
+    initPositionMode();
+    elLatInput.addEventListener("input", markPositionManual);
+    elLonInput.addEventListener("input", markPositionManual);
+    elBtn.addEventListener("click", onCalculate);
+  </script>
+</body>
+</html>
