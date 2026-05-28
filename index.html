@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Prévisions de passages satellite</title>
+  <title>Satellite Pass Predictions</title>
   <style>
     :root {
       --bg: #0f1419;
@@ -266,31 +266,31 @@
   </style>
 </head>
 <body>
-  <h1>Prévisions de passages satellite</h1>
+  <h1>Satellite Pass Predictions</h1>
 
   <section>
-    <h2>Paramétrage</h2>
+    <h2>Settings</h2>
     <div class="param-row">
       <div class="param-block">
         <h3>Position</h3>
-        <div class="pos-mode-group" role="radiogroup" aria-label="Mode de sélection de la position">
+        <div class="pos-mode-group" role="radiogroup" aria-label="Position selection mode">
           <label class="pos-mode-option">
             <input type="radio" name="pos-mode" id="pos-mode-auto" value="auto" checked>
-            Automatique
+            Automatic
           </label>
           <label class="pos-mode-option">
             <input type="radio" name="pos-mode" id="pos-mode-city" value="city">
-            Ville
+            City
           </label>
         </div>
         <div id="city-panel" class="pos-panel-hidden">
-          <label class="param-field" for="city-search">Rechercher une ville</label>
+          <label class="param-field" for="city-search">Search for a city</label>
           <div class="city-search-wrap">
-            <input type="text" id="city-search" class="param-input" autocomplete="off" placeholder="Ex. Toulouse, Paris…">
+            <input type="text" id="city-search" class="param-input" autocomplete="off" placeholder="e.g., Toulouse, Paris…">
             <ul id="city-suggestions" class="city-suggestions" role="listbox"></ul>
           </div>
           <p class="city-search-status" id="city-search-status"></p>
-          <p class="meta city-attribution">Données de localisation : <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames</a> via <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a></p>
+          <p class="meta city-attribution">Location data: <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">GeoNames</a> via <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a></p>
         </div>
         <label class="param-field" for="lat-input">Latitude (°)</label>
         <input type="number" id="lat-input" class="param-input" step="any" min="-90" max="90" required>
@@ -299,31 +299,31 @@
         <p class="meta" id="pos-source">—</p>
       </div>
       <div class="param-block">
-        <h3>Date de calcul</h3>
-        <label class="param-field" for="date-start-input">Début</label>
+        <h3>Calculation date</h3>
+        <label class="param-field" for="date-start-input">Start</label>
         <input type="datetime-local" id="date-start-input" class="param-input" required>
-        <label class="param-field" for="window-duration-input">Durée de calcul (h)</label>
+        <label class="param-field" for="window-duration-input">Calculation duration (h)</label>
         <input type="number" id="window-duration-input" class="param-input" min="0.1" step="0.5" value="12" required>
-        <p class="meta">Heure locale (navigateur) : <span id="calc-timezone-label">—</span></p>
-        <p class="param-field" style="margin-top: 0.75rem;">Fuseau horaire du tableau</p>
-        <div class="pos-mode-group" role="radiogroup" aria-label="Fuseau horaire du tableau">
+        <p class="meta">Local time (browser): <span id="calc-timezone-label">—</span></p>
+        <p class="param-field" style="margin-top: 0.75rem;">Table timezone</p>
+        <div class="pos-mode-group" role="radiogroup" aria-label="Table timezone">
           <label class="pos-mode-option">
             <input type="radio" name="table-tz-mode" id="table-tz-utc" value="utc">
             UTC
           </label>
           <label class="pos-mode-option">
             <input type="radio" name="table-tz-mode" id="table-tz-browser" value="browser" checked>
-            Navigateur <span class="meta" id="table-tz-browser-hint"></span>
+            Browser <span class="meta" id="table-tz-browser-hint"></span>
           </label>
           <label class="pos-mode-option">
             <input type="radio" name="table-tz-mode" id="table-tz-city" value="city" disabled>
-            Ville <span class="meta" id="table-tz-city-hint"></span>
+            City <span class="meta" id="table-tz-city-hint"></span>
           </label>
         </div>
       </div>
       <div class="param-block">
-        <h3>Élévation minimale</h3>
-        <select id="min-elev" class="param-select" aria-label="Élévation minimale en degrés">
+        <h3>Minimum elevation</h3>
+        <select id="min-elev" class="param-select" aria-label="Minimum elevation in degrees">
           <option value="0">0°</option>
           <option value="5" selected>5°</option>
           <option value="10">10°</option>
@@ -333,16 +333,16 @@
     <div class="param-block param-block-full">
       <h3>Satellites</h3>
       <div class="sat-toolbar">
-        <button type="button" id="btn-sat-all">Tout sélectionner</button>
-        <button type="button" id="btn-sat-none">Tout désélectionner</button>
+        <button type="button" id="btn-sat-all">Select all</button>
+        <button type="button" id="btn-sat-none">Deselect all</button>
       </div>
       <div class="sat-list" id="sat-list"></div>
     </div>
   </section>
 
   <section>
-    <button type="button" id="btn-calc">Calcul passages</button>
-    <p class="meta" id="status">Cliquez sur Calcul passages.</p>
+    <button type="button" id="btn-calc">Calculate passes</button>
+    <p class="meta" id="status">Click Calculate passes.</p>
     <div id="results"></div>
   </section>
 
@@ -403,7 +403,7 @@
     let dateTimeFmt;
     let tableDateFmt;
     try {
-      dateTimeFmt = new Intl.DateTimeFormat("fr-FR", {
+      dateTimeFmt = new Intl.DateTimeFormat("en-US", {
         dateStyle: "full",
         timeStyle: "long",
         timeZoneName: "short",
@@ -451,7 +451,7 @@
       const value = parseFloat(elMinElev.value);
       if (MIN_ELEV_OPTIONS.indexOf(value) === -1) {
         throw new Error(
-          "Élévation minimale invalide : valeur attendue parmi " + MIN_ELEV_OPTIONS.join(", ") + "°.",
+          "Invalid minimum elevation: expected one of " + MIN_ELEV_OPTIONS.join(", ") + "°.",
         );
       }
       return value;
@@ -494,7 +494,7 @@
           return "UTC";
         }
         throw new Error(
-          "Impossible de déterminer le décalage UTC pour « " + ianaTimeZone + " ».",
+          "Unable to determine UTC offset for \"" + ianaTimeZone + "\".",
         );
       }
       const sign = match[1];
@@ -528,7 +528,7 @@
     }
 
     function buildTableDateFmt(timeZone) {
-      return new Intl.DateTimeFormat("fr-FR", {
+      return new Intl.DateTimeFormat("en-US", {
         dateStyle: "short",
         timeStyle: "medium",
         timeZone: timeZone,
@@ -544,11 +544,11 @@
       }
       if (tableDisplayMode === "city") {
         if (selectedCityTimeZone === null) {
-          throw new Error("Fuseau de la ville : aucune ville sélectionnée.");
+          throw new Error("City timezone: no city selected.");
         }
         return selectedCityTimeZone;
       }
-      throw new Error("Mode d'affichage fuseau tableau invalide : « " + tableDisplayMode + " ».");
+      throw new Error("Invalid table timezone display mode: \"" + tableDisplayMode + "\".");
     }
 
     function refreshTableDateFmt() {
@@ -580,13 +580,13 @@
           "(" + selectedCityTimeZone + " — " +
           formatTimeZoneDisplay(selectedCityTimeZone, refDate) + ")";
       } else {
-        elTableTzCityHint.textContent = "(aucune ville sélectionnée)";
+        elTableTzCityHint.textContent = "(no city selected)";
       }
     }
 
     function setTableDisplayMode(mode) {
       if (mode !== "utc" && mode !== "browser" && mode !== "city") {
-        throw new Error("Mode fuseau tableau invalide : « " + mode + " ».");
+        throw new Error("Invalid table timezone mode: \"" + mode + "\".");
       }
       if (mode === "city" && !cityTimeZoneAvailable) {
         return;
@@ -636,7 +636,7 @@
       if (dateTimeFmt) {
         return dateTimeFmt.format(date);
       }
-      return date.toLocaleString("fr-FR");
+      return date.toLocaleString("en-US");
     }
 
     function formatTableDate(date) {
@@ -644,7 +644,7 @@
         return tableDateFmt.format(date);
       }
       const tz = getTableTimeZone();
-      return date.toLocaleString("fr-FR", { timeZone: tz });
+      return date.toLocaleString("en-US", { timeZone: tz });
     }
 
     function setStatus(message, isError) {
@@ -665,11 +665,11 @@
 
     function parseDatetimeLocalValue(value, fieldLabel) {
       if (value === "") {
-        throw new Error(fieldLabel + " : date/heure requise.");
+        throw new Error(fieldLabel + ": date/time required.");
       }
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) {
-        throw new Error(fieldLabel + " : date/heure invalide.");
+        throw new Error(fieldLabel + ": invalid date/time.");
       }
       return date;
     }
@@ -683,7 +683,7 @@
     function parseWindowDurationHours() {
       const value = parseFloat(elWindowDurationInput.value);
       if (Number.isNaN(value) || value <= 0) {
-        throw new Error("Durée de calcul invalide : valeur strictement positive attendue (heures).");
+        throw new Error("Invalid calculation duration: expected a strictly positive value (hours).");
       }
       return value;
     }
@@ -699,23 +699,23 @@
       const lat = parseFloat(elLatInput.value);
       const lon = parseFloat(elLonInput.value);
       if (Number.isNaN(lat) || lat < -90 || lat > 90) {
-        throw new Error("Latitude invalide : valeur attendue entre -90 et 90.");
+        throw new Error("Invalid latitude: expected a value between -90 and 90.");
       }
       if (Number.isNaN(lon) || lon < -180 || lon > 180) {
-        throw new Error("Longitude invalide : valeur attendue entre -180 et 180.");
+        throw new Error("Invalid longitude: expected a value between -180 and 180.");
       }
       return { lat: lat, lon: lon, altM: 0 };
     }
 
     function getCalculationWindow() {
-      const t0 = parseDatetimeLocalValue(elDateStartInput.value, "Début");
+      const t0 = parseDatetimeLocalValue(elDateStartInput.value, "Start");
       const durationHours = parseWindowDurationHours();
       const tEnd = new Date(t0.getTime() + durationHours * 3600 * 1000);
       return { t0: t0, tEnd: tEnd };
     }
 
     function markPositionManual() {
-      elPosSource.textContent = "Saisie manuelle";
+      elPosSource.textContent = "Manual input";
     }
 
     function formatCityLabel(result) {
@@ -746,19 +746,19 @@
       const url =
         GEOCODING_API +
         "?name=" + encodeURIComponent(query) +
-        "&count=8&language=fr&format=json";
+        "&count=8&language=en&format=json";
       let response;
       try {
         response = await fetch(url);
       } catch (err) {
-        throw new Error("Impossible de contacter le service de géocodage.");
+        throw new Error("Unable to contact the geocoding service.");
       }
       if (!response.ok) {
-        throw new Error("Service de géocodage indisponible (HTTP " + response.status + ").");
+        throw new Error("Geocoding service unavailable (HTTP " + response.status + ").");
       }
       const data = await response.json();
       if (data.error === true) {
-        throw new Error("Géocodage : " + data.reason);
+        throw new Error("Geocoding: " + data.reason);
       }
       if (!Object.prototype.hasOwnProperty.call(data, "results")) {
         return [];
@@ -771,7 +771,7 @@
       if (results.length === 0) {
         const li = document.createElement("li");
         li.className = "city-suggestion-empty";
-        li.textContent = "Aucun résultat";
+        li.textContent = "No results";
         elCitySuggestions.appendChild(li);
         elCitySuggestions.classList.add("city-suggestions-visible");
         return;
@@ -798,12 +798,12 @@
     function selectCity(result) {
       if (!Object.prototype.hasOwnProperty.call(result, "timezone")) {
         throw new Error(
-          "Géocodage : fuseau horaire absent pour cette ville. Choisissez un autre résultat.",
+          "Geocoding: timezone missing for this city. Choose another result.",
         );
       }
       const label = formatCityLabel(result);
       elCitySearch.value = label;
-      setPositionInputs(result.latitude, result.longitude, "Ville : " + label);
+      setPositionInputs(result.latitude, result.longitude, "City: " + label);
       selectedCityTimeZone = result["timezone"];
       cityTimeZoneAvailable = true;
       closeCitySuggestions();
@@ -825,7 +825,7 @@
       const requestId = ++citySearchRequestId;
       citySearchTimer = setTimeout(async function () {
         citySearchTimer = null;
-        setCitySearchStatus("Recherche…");
+        setCitySearchStatus("Searching…");
         try {
           const results = await searchCities(query);
           if (requestId !== citySearchRequestId) {
@@ -845,7 +845,7 @@
 
     function setPositionMode(mode) {
       if (mode !== "auto" && mode !== "city") {
-        throw new Error("Mode de position invalide : « " + mode + " ».");
+        throw new Error("Invalid position mode: \"" + mode + "\".");
       }
       positionMode = mode;
       if (mode === "auto") {
@@ -861,7 +861,7 @@
         initGeolocation();
       } else {
         elCityPanel.classList.remove("pos-panel-hidden");
-        elPosSource.textContent = "Saisissez ou sélectionnez une ville";
+        elPosSource.textContent = "Type or select a city";
         cityTimeZoneAvailable = selectedCityTimeZone !== null;
         updateTableTimezoneHints();
       }
@@ -896,12 +896,12 @@
     }
 
     function initGeolocation() {
-      setPositionInputs(TOULOUSE_LAT, TOULOUSE_LON, "En attente de géolocalisation…");
+      setPositionInputs(TOULOUSE_LAT, TOULOUSE_LON, "Waiting for geolocation…");
       if (!navigator.geolocation) {
         setPositionInputs(
           TOULOUSE_LAT,
           TOULOUSE_LON,
-          "Toulouse (par défaut) — géolocalisation non supportée",
+          "Toulouse (default) — geolocation not supported",
         );
         return;
       }
@@ -910,11 +910,11 @@
           setPositionInputs(
             pos.coords.latitude,
             pos.coords.longitude,
-            "Géolocalisation navigateur",
+            "Browser geolocation",
           );
         },
         function () {
-          setPositionInputs(TOULOUSE_LAT, TOULOUSE_LON, "Toulouse (par défaut)");
+          setPositionInputs(TOULOUSE_LAT, TOULOUSE_LON, "Toulouse (default)");
         },
         { enableHighAccuracy: true, timeout: 10000 },
       );
@@ -933,7 +933,7 @@
         script.async = true;
         script.onload = function () {
           if (typeof satellite === "undefined") {
-            reject(new Error("satellite.js chargé mais objet global « satellite » absent."));
+            reject(new Error("satellite.js loaded but global \"satellite\" object is missing."));
             return;
           }
           resolve(satellite);
@@ -941,7 +941,7 @@
         script.onerror = function () {
           reject(
             new Error(
-              "Impossible de charger satellite.js depuis le CDN. Vérifiez l'accès réseau.",
+              "Unable to load satellite.js from the CDN. Check network access.",
             ),
           );
         };
@@ -1010,7 +1010,7 @@
         }
       }
       if (selected.length === 0) {
-        throw new Error("Sélectionnez au moins un satellite.");
+        throw new Error("Select at least one satellite.");
       }
       return selected;
     }
@@ -1026,14 +1026,14 @@
       const response = await fetch(buildTleUrl(noradId));
       if (!response.ok) {
         throw new Error(
-          "Échec du téléchargement CelesTrak pour " + label + " (HTTP " + response.status + ").",
+          "CelesTrak download failed for " + label + " (HTTP " + response.status + ").",
         );
       }
       const text = await response.text();
       const lines = text.trim().split(/\r?\n/);
       if (lines.length < 3) {
         throw new Error(
-          "Réponse CelesTrak invalide pour " + label + " : 3 lignes TLE attendues.",
+          "Invalid CelesTrak response for " + label + ": 3 TLE lines expected.",
         );
       }
       const entry = {
@@ -1051,7 +1051,7 @@
       const positionAndVelocity = sat.propagate(satrec, date);
       const positionEci = positionAndVelocity.position;
       if (!positionEci) {
-        throw new Error("Propagation impossible à cette date.");
+        throw new Error("Propagation is not possible at this date.");
       }
       const gmst = sat.gstime(date);
       const positionEcf = sat.eciToEcf(positionEci, gmst);
@@ -1156,7 +1156,7 @@
       if (passes.length === 0) {
         const p = document.createElement("p");
         p.className = "empty-msg";
-        p.textContent = "Aucun passage sur la fenêtre configurée.";
+        p.textContent = "No pass found in the configured window.";
         elResults.appendChild(p);
         return;
       }
@@ -1165,12 +1165,12 @@
       const headerLabel = getTableHeaderTimeZoneLabel(headerRefDate);
       const table = document.createElement("table");
       const thead = document.createElement("thead");
-      const thStart = "Début (" + headerLabel + ")";
-      const thEnd = "Fin (" + headerLabel + ")";
+      const thStart = "Start (" + headerLabel + ")";
+      const thEnd = "End (" + headerLabel + ")";
       thead.innerHTML =
         "<tr>" +
         "<th>" + thStart + "</th><th>" + thEnd + "</th><th>Satellite</th>" +
-        "<th>Élévation max.</th><th>Durée (min)</th>" +
+        "<th>Max elevation</th><th>Duration (min)</th>" +
         "</tr>";
       table.appendChild(thead);
 
@@ -1203,8 +1203,8 @@
 
     async function onCalculate() {
       elBtn.disabled = true;
-      elBtn.textContent = "Calcul en cours…";
-      setStatus("Chargement de satellite.js…", false);
+      elBtn.textContent = "Calculating…";
+      setStatus("Loading satellite.js…", false);
 
       try {
         const selected = getSelectedSatellites();
@@ -1223,14 +1223,14 @@
             );
           } else {
             setStatus(
-              "Téléchargement TLE " + entry.label + " (" + (i + 1) + "/" + selected.length + ")…",
+              "Downloading TLE " + entry.label + " (" + (i + 1) + "/" + selected.length + ")…",
               false,
             );
           }
           const tle = await downloadTleFromCelestrak(entry.noradId, entry.label);
           const satrec = sat.twoline2satrec(tle.line1, tle.line2);
           setStatus(
-            "Calcul des passages " + entry.label + " (" + (i + 1) + "/" + selected.length + ")…",
+            "Calculating passes " + entry.label + " (" + (i + 1) + "/" + selected.length + ")…",
             false,
           );
           const passes = findPasses(
@@ -1243,14 +1243,14 @@
 
         sortPassesByStart(allPasses);
         renderPasses(allPasses);
-        setStatus(allPasses.length + " passage(s) trouvé(s).", false);
+        setStatus(allPasses.length + " pass(es) found.", false);
       } catch (err) {
         setStatus(err.message, true);
         elResults.innerHTML = "";
         lastRenderedPasses = null;
       } finally {
         elBtn.disabled = false;
-        elBtn.textContent = "Calcul passages";
+        elBtn.textContent = "Calculate passes";
       }
     }
 
