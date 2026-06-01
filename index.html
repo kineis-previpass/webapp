@@ -133,6 +133,18 @@
       font-weight: 500;
     }
     button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .results-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .results-actions button.btn-secondary {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      font-weight: 500;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -220,6 +232,51 @@
     .table-scroll td {
       white-space: nowrap;
     }
+    .gap-chart-panel {
+      margin-top: 1rem;
+      padding: 1rem 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .gap-chart-panel[hidden] {
+      display: none;
+    }
+    .gap-chart-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin: 0 0 0.25rem;
+    }
+    .gap-chart-subtitle {
+      margin: 0 0 0.75rem;
+    }
+    .gap-chart-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .gap-chart-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+      min-width: min(100%, 20rem);
+    }
+    .gap-chart-axis {
+      stroke: var(--border);
+      stroke-width: 1;
+    }
+    .gap-chart-bar {
+      fill: var(--accent);
+    }
+    .gap-chart-label {
+      fill: var(--muted);
+      font-size: 11px;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+    .gap-chart-y-label {
+      fill: var(--muted);
+      font-size: 12px;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
     @media (max-width: 640px) {
       body {
         padding: 0.75rem;
@@ -259,7 +316,11 @@
       .sat-option {
         min-height: 2.75rem;
       }
-      #btn-calc {
+      .results-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .results-actions button {
         width: 100%;
       }
     }
@@ -332,18 +393,19 @@
     </div>
     <div class="param-block param-block-full">
       <h3>Satellites</h3>
-      <div class="sat-toolbar">
-        <button type="button" id="btn-sat-all">Select all</button>
-        <button type="button" id="btn-sat-none">Deselect all</button>
-      </div>
       <div class="sat-list" id="sat-list"></div>
     </div>
   </section>
 
   <section>
-    <button type="button" id="btn-calc">Calculate passes</button>
+    <div class="results-actions">
+      <button type="button" id="btn-calc">Calculate passes</button>
+      <button type="button" id="btn-export-csv" class="btn-secondary" disabled>Export CSV</button>
+      <button type="button" id="btn-show-gap-chart" class="btn-secondary" disabled>Show gap chart</button>
+    </div>
     <p class="meta" id="status">Click Calculate passes.</p>
     <div id="results"></div>
+    <div id="gap-chart-panel" class="gap-chart-panel" hidden aria-live="polite"></div>
   </section>
 
   <script>
@@ -402,6 +464,7 @@
 
     let dateTimeFmt;
     let tableDateFmt;
+    let gapChartAxisDateFmt;
     try {
       dateTimeFmt = new Intl.DateTimeFormat("en-US", {
         dateStyle: "full",
@@ -421,6 +484,7 @@
     let selectedCityTimeZone = null;
     let cityTimeZoneAvailable = false;
     let lastRenderedPasses = null;
+    let resultsViewMode = "table";
 
     const elLatInput = document.getElementById("lat-input");
     const elLonInput = document.getElementById("lon-input");
@@ -441,10 +505,11 @@
     const elTableTzCityHint = document.getElementById("table-tz-city-hint");
     const elStatus = document.getElementById("status");
     const elBtn = document.getElementById("btn-calc");
+    const elBtnExportCsv = document.getElementById("btn-export-csv");
+    const elBtnShowGapChart = document.getElementById("btn-show-gap-chart");
+    const elGapChartPanel = document.getElementById("gap-chart-panel");
     const elResults = document.getElementById("results");
     const elSatList = document.getElementById("sat-list");
-    const elBtnSatAll = document.getElementById("btn-sat-all");
-    const elBtnSatNone = document.getElementById("btn-sat-none");
     const elMinElev = document.getElementById("min-elev");
 
     function getMinElevDeg() {
@@ -559,6 +624,24 @@
       }
     }
 
+    function refreshGapChartAxisDateFmt() {
+      gapChartAxisDateFmt = new Intl.DateTimeFormat("en-US", {
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: getTableTimeZone(),
+      });
+    }
+
+    function formatGapChartAxisDate(date) {
+      if (!gapChartAxisDateFmt) {
+        refreshGapChartAxisDateFmt();
+      }
+      return gapChartAxisDateFmt.format(date);
+    }
+
     function getTableHeaderTimeZoneLabel(referenceDate) {
       if (tableDisplayMode === "utc") {
         return "UTC";
@@ -654,6 +737,75 @@
 
     function pad2(n) {
       return String(n).padStart(2, "0");
+    }
+
+    function intlPartValue(parts, type) {
+      for (let i = 0; i < parts.length; i++) {
+        if (parts[i].type === type) {
+          return parts[i].value;
+        }
+      }
+      throw new Error('Missing Intl.DateTimeFormat part: "' + type + '".');
+    }
+
+    function getIsoOffsetSuffix(ianaTimeZone, date) {
+      if (ianaTimeZone === "UTC") {
+        return "Z";
+      }
+      const offsetParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: ianaTimeZone,
+        timeZoneName: "longOffset",
+      }).formatToParts(date);
+      let raw = "";
+      for (let i = 0; i < offsetParts.length; i++) {
+        if (offsetParts[i].type === "timeZoneName") {
+          raw = offsetParts[i].value;
+          break;
+        }
+      }
+      const match = raw.match(/(?:GMT|UTC)([+-])(\d{1,2})(?::(\d{2}))?/i);
+      if (!match) {
+        if (raw.toUpperCase() === "GMT" || raw.toUpperCase() === "UTC") {
+          return "Z";
+        }
+        throw new Error(
+          'Unable to determine ISO offset for timezone "' + ianaTimeZone + '".',
+        );
+      }
+      const sign = match[1];
+      const hours = parseInt(match[2], 10);
+      const minutes = match[3] ? parseInt(match[3], 10) : 0;
+      return sign + pad2(hours) + ":" + pad2(minutes);
+    }
+
+    function formatIsoWithTimeZone(date, ianaTimeZone) {
+      const localParts = new Intl.DateTimeFormat("en-GB", {
+        timeZone: ianaTimeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      }).formatToParts(date);
+      let hour = intlPartValue(localParts, "hour");
+      if (hour === "24") {
+        hour = "00";
+      }
+      return (
+        intlPartValue(localParts, "year") + "-" +
+        intlPartValue(localParts, "month") + "-" +
+        intlPartValue(localParts, "day") + "T" +
+        hour + ":" +
+        intlPartValue(localParts, "minute") + ":" +
+        intlPartValue(localParts, "second") +
+        getIsoOffsetSuffix(ianaTimeZone, date)
+      );
+    }
+
+    function formatCsvCalendarDate(date) {
+      return formatIsoWithTimeZone(date, getTableTimeZone());
     }
 
     function dateToDatetimeLocalValue(date) {
@@ -954,8 +1106,8 @@
       return CELESTRAK_TLE_BASE + "?CATNR=" + noradId + "&FORMAT=TLE";
     }
 
-    function setAllSatelliteCheckboxes(checked) {
-      const inputs = elSatList.querySelectorAll('input[type="checkbox"]');
+    function setGroupSatelliteCheckboxes(groupBlock, checked) {
+      const inputs = groupBlock.querySelectorAll('input[type="checkbox"]');
       for (let i = 0; i < inputs.length; i++) {
         inputs[i].checked = checked;
       }
@@ -971,6 +1123,23 @@
         groupTitle.className = "sat-group-title";
         groupTitle.textContent = group.groupLabel;
         groupBlock.appendChild(groupTitle);
+        const toolbar = document.createElement("div");
+        toolbar.className = "sat-toolbar";
+        const btnAll = document.createElement("button");
+        btnAll.type = "button";
+        btnAll.textContent = "Select all";
+        btnAll.addEventListener("click", function () {
+          setGroupSatelliteCheckboxes(groupBlock, true);
+        });
+        const btnNone = document.createElement("button");
+        btnNone.type = "button";
+        btnNone.textContent = "Deselect all";
+        btnNone.addEventListener("click", function () {
+          setGroupSatelliteCheckboxes(groupBlock, false);
+        });
+        toolbar.appendChild(btnAll);
+        toolbar.appendChild(btnNone);
+        groupBlock.appendChild(toolbar);
         const list = document.createElement("div");
         list.className = "sat-list";
         for (let i = 0; i < group.satellites.length; i++) {
@@ -989,12 +1158,6 @@
         groupBlock.appendChild(list);
         elSatList.appendChild(groupBlock);
       }
-      elBtnSatAll.addEventListener("click", function () {
-        setAllSatelliteCheckboxes(true);
-      });
-      elBtnSatNone.addEventListener("click", function () {
-        setAllSatelliteCheckboxes(false);
-      });
     }
 
     function getSelectedSatellites() {
@@ -1150,6 +1313,325 @@
       return passes;
     }
 
+    function formatUnixTimestampSeconds(date) {
+      return String(Math.floor(date.getTime() / 1000));
+    }
+
+    function gapSincePreviousPassMinutes(passes, index) {
+      if (index === 0) {
+        return null;
+      }
+      const rawMin =
+        (passes[index].start.getTime() - passes[index - 1].end.getTime()) / 60000;
+      return rawMin > 0 ? rawMin : 0;
+    }
+
+    function formatSinceLastPassMinutes(passes, index) {
+      const gapMin = gapSincePreviousPassMinutes(passes, index);
+      if (gapMin === null) {
+        return "—";
+      }
+      return gapMin.toFixed(1);
+    }
+
+    function escapeCsvField(value) {
+      const text = String(value);
+      if (/[";\r\n]/.test(text)) {
+        return '"' + text.replace(/"/g, '""') + '"';
+      }
+      return text;
+    }
+
+    function buildPassesCsvRows(passes) {
+      refreshTableDateFmt();
+      const headerRefDate = passes[0].start;
+      const headerLabel = getTableHeaderTimeZoneLabel(headerRefDate);
+      const thStart = "Start (" + headerLabel + ")";
+      const thEnd = "End (" + headerLabel + ")";
+      const header = [
+        thStart,
+        "Start UTC timestamp (s)",
+        thEnd,
+        "End UTC timestamp (s)",
+        "Satellite",
+        "Max elevation (deg)",
+        "Duration (min)",
+        "Since last pass (min)",
+      ];
+      const rows = [header];
+      for (let i = 0; i < passes.length; i++) {
+        const p = passes[i];
+        const durationMin = (p.end.getTime() - p.start.getTime()) / 60000;
+        rows.push([
+          formatCsvCalendarDate(p.start),
+          formatUnixTimestampSeconds(p.start),
+          formatCsvCalendarDate(p.end),
+          formatUnixTimestampSeconds(p.end),
+          p.satName,
+          p.maxElev.toFixed(1),
+          durationMin.toFixed(1),
+          formatSinceLastPassMinutes(passes, i),
+        ]);
+      }
+      return rows;
+    }
+
+    function rowsToCsvText(rows) {
+      const lines = [];
+      for (let i = 0; i < rows.length; i++) {
+        const fields = rows[i];
+        const escaped = [];
+        for (let j = 0; j < fields.length; j++) {
+          escaped.push(escapeCsvField(fields[j]));
+        }
+        lines.push(escaped.join(";"));
+      }
+      return lines.join("\r\n");
+    }
+
+    function buildCsvExportFilename() {
+      const now = new Date();
+      return (
+        "satellite-passes-" +
+        now.getFullYear() + "-" + pad2(now.getMonth() + 1) + "-" + pad2(now.getDate()) +
+        "T" + pad2(now.getHours()) + "-" + pad2(now.getMinutes()) + "-" + pad2(now.getSeconds()) +
+        ".csv"
+      );
+    }
+
+    function downloadCsv(filename, csvText) {
+      const blob = new Blob([csvText], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function updateExportCsvButtonState() {
+      const hasPasses =
+        lastRenderedPasses !== null && lastRenderedPasses.length > 0;
+      elBtnExportCsv.disabled = !hasPasses;
+    }
+
+    function updateGapChartButtonState() {
+      const canShow =
+        lastRenderedPasses !== null && lastRenderedPasses.length >= 2;
+      elBtnShowGapChart.disabled = !canShow;
+    }
+
+    function updateGapChartToggleButtonLabel() {
+      if (resultsViewMode === "chart") {
+        elBtnShowGapChart.textContent = "Show pass table";
+      } else {
+        elBtnShowGapChart.textContent = "Show gap chart";
+      }
+    }
+
+    function showPassTableView() {
+      resultsViewMode = "table";
+      elResults.hidden = false;
+      elGapChartPanel.hidden = true;
+      elGapChartPanel.innerHTML = "";
+      updateGapChartToggleButtonLabel();
+    }
+
+    function refreshGapChartIfVisible() {
+      if (resultsViewMode !== "chart") {
+        return;
+      }
+      if (lastRenderedPasses === null || lastRenderedPasses.length < 2) {
+        showPassTableView();
+        return;
+      }
+      const gaps = computeInterPassGapsMinutes(lastRenderedPasses);
+      renderGapChart(gaps);
+      elResults.hidden = true;
+      elGapChartPanel.hidden = false;
+    }
+
+    function escapeXmlAttr(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function escapeSvgText(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;");
+    }
+
+    function computeInterPassGapsMinutes(passes) {
+      const gaps = [];
+      for (let i = 1; i < passes.length; i++) {
+        gaps.push({
+          gapMin: gapSincePreviousPassMinutes(passes, i),
+          afterEnd: passes[i - 1].end,
+          beforeStart: passes[i].start,
+          afterSat: passes[i - 1].satName,
+          beforeSat: passes[i].satName,
+        });
+      }
+      return gaps;
+    }
+
+    function renderGapChart(gaps) {
+      refreshTableDateFmt();
+      refreshGapChartAxisDateFmt();
+      const marginLeft = 52;
+      const marginRight = 16;
+      const marginTop = 24;
+      const plotH = 220;
+      const barCount = gaps.length;
+      const minSlotWidth = 16;
+      const barPadding = 4;
+      const plotW = Math.max(732, barCount * minSlotWidth);
+      const barWidth = Math.max(
+        4,
+        (plotW - barPadding * (barCount + 1)) / barCount,
+      );
+      const rotateXLabels = barWidth < 36 || barCount > 12;
+      const marginBottom = rotateXLabels ? 96 : 52;
+      const vbW = marginLeft + marginRight + plotW;
+      const vbH = marginTop + plotH + marginBottom;
+      const plotX0 = marginLeft;
+      const plotY0 = marginTop;
+      const plotY1 = marginTop + plotH;
+
+      let maxGap = 0;
+      for (let i = 0; i < gaps.length; i++) {
+        if (gaps[i].gapMin > maxGap) {
+          maxGap = gaps[i].gapMin;
+        }
+      }
+      if (maxGap === 0) {
+        maxGap = 1;
+      }
+      const yMax = maxGap * 1.1;
+
+      const minPxPerLabel = rotateXLabels ? 56 : 72;
+      const maxXLabels = Math.max(6, Math.floor(plotW / minPxPerLabel));
+      let xLabelStep = 1;
+      if (barCount > maxXLabels) {
+        xLabelStep = Math.ceil(barCount / maxXLabels);
+      }
+      const xFontSize = barWidth < 12 ? 8 : barWidth < 18 ? 9 : 10;
+
+      const svgParts = [];
+      svgParts.push(
+        '<svg class="gap-chart-svg" viewBox="0 0 ' + vbW + " " + vbH + '" ' +
+        'role="img" aria-label="Inter-pass gaps bar chart">',
+      );
+      svgParts.push(
+        '<line class="gap-chart-axis" x1="' + plotX0 + '" y1="' + plotY1 +
+        '" x2="' + (plotX0 + plotW) + '" y2="' + plotY1 + '"/>',
+      );
+      svgParts.push(
+        '<line class="gap-chart-axis" x1="' + plotX0 + '" y1="' + plotY0 +
+        '" x2="' + plotX0 + '" y2="' + plotY1 + '"/>',
+      );
+      svgParts.push(
+        '<text class="gap-chart-y-label" x="' + (plotX0 - 8) + '" y="' +
+        (plotY1 + 4) + '" text-anchor="end">0</text>',
+      );
+      svgParts.push(
+        '<text class="gap-chart-y-label" x="' + (plotX0 - 8) + '" y="' +
+        (plotY0 + 12) + '" text-anchor="end">' + yMax.toFixed(1) + "</text>",
+      );
+      svgParts.push(
+        '<text class="gap-chart-y-label" x="12" y="' + (plotY0 + plotH / 2) +
+        '" text-anchor="middle" transform="rotate(-90 12 ' +
+        (plotY0 + plotH / 2) + ')">min</text>',
+      );
+
+      for (let i = 0; i < gaps.length; i++) {
+        const g = gaps[i];
+        const barX = plotX0 + barPadding + i * (barWidth + barPadding);
+        const barH = (g.gapMin / yMax) * plotH;
+        const barY = plotY1 - barH;
+        const tooltip =
+          "Gap: " + g.gapMin.toFixed(1) + " min\n" +
+          "After: " + g.afterSat + " ends " + formatTableDate(g.afterEnd) + "\n" +
+          "Before: " + g.beforeSat + " starts " + formatTableDate(g.beforeStart);
+        svgParts.push(
+          '<rect class="gap-chart-bar" x="' + barX + '" y="' + barY +
+          '" width="' + barWidth + '" height="' + barH + '" ' +
+          'title="' + escapeXmlAttr(tooltip) + '"/>',
+        );
+        const showXLabel =
+          i % xLabelStep === 0 || i === gaps.length - 1;
+        if (showXLabel) {
+          const labelX = barX + barWidth / 2;
+          const labelText = escapeSvgText(formatGapChartAxisDate(g.afterEnd));
+          if (rotateXLabels) {
+            const labelY = plotY1 + 12;
+            svgParts.push(
+              '<text class="gap-chart-label" font-size="' + xFontSize + '" x="' +
+              labelX + '" y="' + labelY + '" text-anchor="end" transform="rotate(-45 ' +
+              labelX + " " + labelY + ')">' + labelText + "</text>",
+            );
+          } else {
+            svgParts.push(
+              '<text class="gap-chart-label" font-size="' + xFontSize + '" x="' +
+              labelX + '" y="' + (plotY1 + 18) + '" text-anchor="middle">' +
+              labelText + "</text>",
+            );
+          }
+        }
+        if (barH >= 14 && barWidth >= 10) {
+          svgParts.push(
+            '<text class="gap-chart-label" font-size="9" x="' + (barX + barWidth / 2) +
+            '" y="' + (barY + 12) + '" text-anchor="middle" fill="var(--text)">' +
+            g.gapMin.toFixed(1) + "</text>",
+          );
+        }
+      }
+      svgParts.push("</svg>");
+
+      elGapChartPanel.innerHTML =
+        '<h3 class="gap-chart-title">Inter-pass gaps (minutes)</h3>' +
+        '<p class="gap-chart-subtitle meta">Gap from pass end to next pass start ' +
+        "(global chronological order). Values clipped at 0 min. " +
+        "X-axis: pass end time (" + getTableHeaderTimeZoneLabel(gaps[0].afterEnd) + ").</p>" +
+        '<div class="gap-chart-scroll">' + svgParts.join("") + "</div>";
+    }
+
+    function onToggleGapChartView() {
+      if (resultsViewMode === "chart") {
+        showPassTableView();
+        return;
+      }
+      if (lastRenderedPasses === null) {
+        throw new Error("No pass results. Run Calculate passes first.");
+      }
+      if (lastRenderedPasses.length < 2) {
+        throw new Error("At least two passes are required for the gap chart.");
+      }
+      const gaps = computeInterPassGapsMinutes(lastRenderedPasses);
+      renderGapChart(gaps);
+      resultsViewMode = "chart";
+      elResults.hidden = true;
+      elGapChartPanel.hidden = false;
+      updateGapChartToggleButtonLabel();
+    }
+
+    function onExportCsv() {
+      if (lastRenderedPasses === null) {
+        throw new Error("No pass results to export. Run Calculate passes first.");
+      }
+      if (lastRenderedPasses.length === 0) {
+        throw new Error("No pass results to export.");
+      }
+      const rows = buildPassesCsvRows(lastRenderedPasses);
+      const csvText = rowsToCsvText(rows);
+      downloadCsv(buildCsvExportFilename(), csvText);
+    }
+
     function renderPasses(passes) {
       lastRenderedPasses = passes;
       elResults.innerHTML = "";
@@ -1158,6 +1640,9 @@
         p.className = "empty-msg";
         p.textContent = "No pass found in the configured window.";
         elResults.appendChild(p);
+        showPassTableView();
+        updateExportCsvButtonState();
+        updateGapChartButtonState();
         return;
       }
 
@@ -1171,6 +1656,7 @@
         "<tr>" +
         "<th>" + thStart + "</th><th>" + thEnd + "</th><th>Satellite</th>" +
         "<th>Max elevation</th><th>Duration (min)</th>" +
+        "<th>Since last pass (min)</th>" +
         "</tr>";
       table.appendChild(thead);
 
@@ -1184,7 +1670,8 @@
           "<td>" + formatTableDate(p.end) + "</td>" +
           "<td>" + p.satName + "</td>" +
           "<td>" + p.maxElev.toFixed(1) + "°</td>" +
-          "<td>" + durationMin.toFixed(1) + "</td>";
+          "<td>" + durationMin.toFixed(1) + "</td>" +
+          "<td>" + formatSinceLastPassMinutes(passes, i) + "</td>";
         tbody.appendChild(tr);
       }
       table.appendChild(tbody);
@@ -1192,6 +1679,14 @@
       scrollWrap.className = "table-scroll";
       scrollWrap.appendChild(table);
       elResults.appendChild(scrollWrap);
+      updateExportCsvButtonState();
+      updateGapChartButtonState();
+      if (resultsViewMode === "chart") {
+        elResults.hidden = true;
+        refreshGapChartIfVisible();
+      } else {
+        elResults.hidden = false;
+      }
     }
 
     function sortPassesByStart(passes) {
@@ -1202,6 +1697,7 @@
     }
 
     async function onCalculate() {
+      showPassTableView();
       elBtn.disabled = true;
       elBtn.textContent = "Calculating…";
       setStatus("Loading satellite.js…", false);
@@ -1248,6 +1744,9 @@
         setStatus(err.message, true);
         elResults.innerHTML = "";
         lastRenderedPasses = null;
+        showPassTableView();
+        updateExportCsvButtonState();
+        updateGapChartButtonState();
       } finally {
         elBtn.disabled = false;
         elBtn.textContent = "Calculate passes";
@@ -1261,6 +1760,22 @@
     elLatInput.addEventListener("input", markPositionManual);
     elLonInput.addEventListener("input", markPositionManual);
     elBtn.addEventListener("click", onCalculate);
+    elBtnExportCsv.addEventListener("click", function () {
+      try {
+        onExportCsv();
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    });
+    elBtnShowGapChart.addEventListener("click", function () {
+      try {
+        onToggleGapChartView();
+      } catch (err) {
+        setStatus(err.message, true);
+      }
+    });
+    updateExportCsvButtonState();
+    updateGapChartButtonState();
   </script>
 </body>
 </html>
